@@ -18,13 +18,13 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from agent.config import AgentConfig
+from agent.config import AgentConfig, WorkflowMode
 from agent.prompts import (
-    SYSTEM_PROMPT,
     implement_prompt,
     inspect_prompt,
     plan_prompt,
     self_review_prompt,
+    system_prompt,
 )
 from eval.result_schema import PhaseResult, WorkflowResult
 from providers.base_provider import get_strands_model
@@ -74,6 +74,8 @@ def run_workflow(issue: str, repo_path: str, config: AgentConfig) -> WorkflowRes
             "strands-agents is not installed. Run: pip install strands-agents"
         ) from exc
 
+    concise = config.workflow_mode == WorkflowMode.minimal
+
     model = get_strands_model(config)
     ctx = WorkflowContext(
         issue=issue,
@@ -86,10 +88,11 @@ def run_workflow(issue: str, repo_path: str, config: AgentConfig) -> WorkflowRes
 
     # A single Agent instance is shared across all phases intentionally:
     # Strands preserves conversation history on the instance, so each phase
-    # has full context from all prior phases without re-injecting it manually.
+    # has full context from all prior phases. In minimal mode this allows
+    # phases 2-4 to send short prompts without re-injecting prior outputs.
     agent: Agent = Agent(
         model=model,
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system_prompt(concise=concise),
         tools=[read_file, list_files, search_in_repo, write_file],
     )
 
@@ -100,43 +103,49 @@ def run_workflow(issue: str, repo_path: str, config: AgentConfig) -> WorkflowRes
         agent=agent,
         ctx=ctx,
         phase_name="inspect",
-        prompt=inspect_prompt(ctx.issue, ctx.repo_path),
+        prompt=inspect_prompt(ctx.issue, ctx.repo_path, concise=concise),
     )
     ctx.inspection = output
     ctx.phase_results.append(phase_result)
 
     # ------------------------------------------------------------------
     # Phase 2: Plan
+    # In minimal mode the issue and inspection are in conversation history —
+    # they are not re-injected into this prompt.
     # ------------------------------------------------------------------
     output, phase_result = _run_phase(
         agent=agent,
         ctx=ctx,
         phase_name="plan",
-        prompt=plan_prompt(ctx.issue, ctx.inspection),
+        prompt=plan_prompt(ctx.issue, ctx.inspection, concise=concise),
     )
     ctx.plan = output
     ctx.phase_results.append(phase_result)
 
     # ------------------------------------------------------------------
     # Phase 3: Implement
+    # In minimal mode this prompt is intentionally short — the issue,
+    # inspection, and plan are all in the agent's conversation history.
     # ------------------------------------------------------------------
     output, phase_result = _run_phase(
         agent=agent,
         ctx=ctx,
         phase_name="implement",
-        prompt=implement_prompt(ctx.issue, ctx.inspection, ctx.plan),
+        prompt=implement_prompt(ctx.issue, ctx.inspection, ctx.plan, concise=concise),
     )
     ctx.implementation = output
     ctx.phase_results.append(phase_result)
 
     # ------------------------------------------------------------------
-    # Phase 4: Self-review
+    # Phase 4: Self-review / Risk check
+    # In minimal mode: 3-bullet risk check + confidence score.
+    # In standard mode: full narrative review with re-injected implementation.
     # ------------------------------------------------------------------
     output, phase_result = _run_phase(
         agent=agent,
         ctx=ctx,
         phase_name="self_review",
-        prompt=self_review_prompt(ctx.issue, ctx.implementation),
+        prompt=self_review_prompt(ctx.issue, ctx.implementation, concise=concise),
     )
     ctx.self_review = output
     ctx.phase_results.append(phase_result)

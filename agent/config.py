@@ -22,6 +22,22 @@ class Provider(str, Enum):
     ollama = "ollama"
 
 
+class WorkflowMode(str, Enum):
+    """
+    Controls prompt verbosity and context re-injection strategy.
+
+    minimal  — default. Short structured prompts; phases 2-4 rely on the
+               shared Agent's conversation history instead of re-injecting
+               prior phase outputs. Significantly lower token usage.
+    standard — fuller prompts with explicit context re-injection per phase.
+               Use when you want richer, more self-contained output, or when
+               debugging prompt behaviour across providers.
+    """
+
+    minimal = "minimal"
+    standard = "standard"
+
+
 class AgentRuntime(str, Enum):
     """
     Describes the execution environment.
@@ -87,6 +103,7 @@ class AgentConfig(BaseSettings):
     # Runtime behaviour
     # ------------------------------------------------------------------
     agent_runtime: AgentRuntime = Field(default=AgentRuntime.local)
+    workflow_mode: WorkflowMode = Field(default=WorkflowMode.minimal)
     log_level: str = Field(default="INFO")
     max_iterations: int = Field(default=10, ge=1, le=100)
 
@@ -192,6 +209,7 @@ class AgentConfig(BaseSettings):
             **({"ollama_base_url": self.ollama_base_url} if provider == Provider.ollama else {}),
             # Runtime context
             "agent_runtime": self.agent_runtime.value,
+            "workflow_mode": self.workflow_mode.value,
             "log_level": self.log_level,
             "max_iterations": str(self.max_iterations),
             "results_dir": self.results_dir,
