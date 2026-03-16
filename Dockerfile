@@ -2,27 +2,33 @@ FROM python:3.11-slim
 
 LABEL org.opencontainers.image.description="strands-multi-engineer-agent"
 
-# Avoid .pyc files and ensure stdout/stderr are unbuffered
+# Runtime container for the agent CLI.
+# For local development use a .venv instead (see scripts/bootstrap.sh).
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    curl \
- && rm -rf /var/lib/apt/lists/*
+# Create the non-root user before copying files so --chown on COPY sets
+# ownership directly, avoiding an expensive post-copy chown -R over /app.
+RUN useradd --create-home --no-log-init appuser
 
-# Copy dependency metadata first (layer-cache friendly)
-COPY pyproject.toml ./
+# Copy only the package source needed at runtime.
+# See .dockerignore for what is excluded from the build context.
+COPY --chown=appuser:appuser pyproject.toml ./
+COPY --chown=appuser:appuser agent/       ./agent/
+COPY --chown=appuser:appuser providers/   ./providers/
+COPY --chown=appuser:appuser tools/       ./tools/
+COPY --chown=appuser:appuser tasks/       ./tasks/
+COPY --chown=appuser:appuser eval/        ./eval/
+COPY --chown=appuser:appuser sample_repos/ ./sample_repos/
 
-# Install the package in editable mode so CLI entrypoint is registered
-COPY . .
-RUN pip install --no-cache-dir -e ".[dev]"
+# Non-editable production install.
+# Dev extras (pytest, mypy, ruff) are not needed at runtime.
+# This layer is invalidated when pyproject.toml or source files change.
+RUN pip install --no-cache-dir .
 
-# Non-root user for security
-RUN useradd --create-home appuser && chown -R appuser /app
 USER appuser
 
 ENTRYPOINT ["agent"]
