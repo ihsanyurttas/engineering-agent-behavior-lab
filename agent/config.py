@@ -68,6 +68,8 @@ class AgentConfig(BaseSettings):
     # ------------------------------------------------------------------
     anthropic_api_key: str | None = Field(default=None, repr=False)
     anthropic_model: str = Field(default="claude-sonnet-4-6")
+    # max_tokens is Required by AnthropicModel — must be passed explicitly.
+    anthropic_max_tokens: int = Field(default=4096, ge=1)
 
     # ------------------------------------------------------------------
     # OpenAI

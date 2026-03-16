@@ -61,9 +61,11 @@ class AnthropicProvider(BaseProviderBuilder):
                 "Ensure strands-agents is installed: pip install strands-agents"
             ) from exc
 
+        # model_id and max_tokens are Required fields in AnthropicConfig.
         return AnthropicModel(
             client_args={"api_key": self.config.anthropic_api_key},
             model_id=self.config.anthropic_model,
+            max_tokens=self.config.anthropic_max_tokens,
         )
 
 
@@ -79,10 +81,12 @@ class OpenAIProvider(BaseProviderBuilder):
                 "Ensure strands-agents is installed: pip install strands-agents"
             ) from exc
 
+        # client_args passes auth; model_id is an OpenAIConfig kwarg.
         return OpenAIModel(
             client_args={"api_key": self.config.openai_api_key},
             model_id=self.config.openai_model,
         )
+
 
 
 class OllamaProvider(BaseProviderBuilder):

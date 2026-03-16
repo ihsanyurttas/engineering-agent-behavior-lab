@@ -87,14 +87,10 @@ def run_workflow(issue: str, repo_path: str, config: AgentConfig) -> WorkflowRes
     # A single Agent instance is shared across all phases intentionally:
     # Strands preserves conversation history on the instance, so each phase
     # has full context from all prior phases without re-injecting it manually.
-    # max_iterations controls the tool-use loop depth per Agent invocation;
-    # Strands configures this at the Agent level, not per-call.
     agent: Agent = Agent(
         model=model,
         system_prompt=SYSTEM_PROMPT,
         tools=[read_file, list_files, search_in_repo, write_file],
-        max_parallel_tool_uses=1,  # sequential — ensures deterministic output for comparison
-        max_iterations=config.max_iterations,
     )
 
     # ------------------------------------------------------------------
@@ -186,12 +182,12 @@ def _run_phase(
 
     elapsed = time.perf_counter() - start
 
-    # Extract token usage before stringifying. Strands AgentResult exposes
-    # usage as result.usage with inputTokens / outputTokens (camelCase).
-    # Use getattr with fallbacks so missing fields never raise.
-    usage = getattr(result, "usage", None)
-    input_tokens: int | None = getattr(usage, "inputTokens", None)
-    output_tokens: int | None = getattr(usage, "outputTokens", None)
+    # Token usage lives on result.metrics.accumulated_usage (camelCase keys).
+    # accumulated_usage sums across all tool-use cycles within this phase call.
+    metrics = getattr(result, "metrics", None)
+    accumulated_usage = getattr(metrics, "accumulated_usage", None)
+    input_tokens: int | None = getattr(accumulated_usage, "inputTokens", None)
+    output_tokens: int | None = getattr(accumulated_usage, "outputTokens", None)
 
     output_text = str(result)
 
