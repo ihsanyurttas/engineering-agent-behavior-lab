@@ -8,18 +8,20 @@ in eval/results/. This enables apples-to-apples comparison across providers.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
 
 class PhaseResult(BaseModel):
-    """Output from a single workflow phase (inspect / plan / implement / review)."""
+    """Output from a single workflow phase."""
 
     phase: str
     prompt: str
     output: str
     elapsed_seconds: float
+    # Token counts extracted from the provider response, when available.
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
 
 class WorkflowResult(BaseModel):
@@ -38,13 +40,13 @@ class WorkflowResult(BaseModel):
     total_elapsed_seconds: float
     run_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Optional token/cost data (populated in Phase 4 when available)
-    total_input_tokens: Optional[int] = None
-    total_output_tokens: Optional[int] = None
-    estimated_cost_usd: Optional[float] = None
+    # Token totals summed across all phases (None when provider does not expose usage).
+    total_input_tokens: int | None = None
+    total_output_tokens: int | None = None
+    estimated_cost_usd: float | None = None
 
-    # Self-review confidence extracted from the review phase
-    confidence_score: Optional[float] = None
+    # Confidence score (0–10) extracted from the self_review phase output.
+    confidence_score: float | None = None
 
     def summary(self) -> dict:
         """Return a compact summary dict suitable for CLI display."""

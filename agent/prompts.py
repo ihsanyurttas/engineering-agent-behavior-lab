@@ -62,32 +62,49 @@ Be specific about which files to change and what changes to make.
 """
 
 
-def implement_prompt(plan: str) -> str:
+def implement_prompt(issue: str, inspection: str, plan: str) -> str:
+    """
+    Provide the original issue, inspection findings, and plan as context.
+    The issue is the ground truth for what a correct implementation means.
+    """
     return f"""\
 ## Phase 3: Implementation
 
-Follow this plan:
+Original issue:
+{issue}
+
+Inspection findings:
+{inspection}
+
+Implementation plan:
 {plan}
 
-For each step:
+For each step in the plan:
 - Write the exact code changes needed
 - Use a diff-style or full file replacement format
 - Do not skip steps
 """
 
 
-def review_prompt(implementation: str) -> str:
+def self_review_prompt(issue: str, implementation: str) -> str:
+    """
+    Self-review by the same agent that produced the implementation.
+    Including the original issue grounds the "does it solve the issue" check.
+    """
     return f"""\
 ## Phase 4: Self-Review
 
-Review the following implementation:
+Original issue:
+{issue}
+
+Implementation produced:
 {implementation}
 
-Check for:
-1. Correctness — does it solve the issue?
+Review the implementation above. Check for:
+1. Correctness — does it fully solve the original issue?
 2. Edge cases — are there inputs that would break it?
 3. Style — is the code idiomatic for its language?
 4. Tests — what tests should accompany this change?
 
-Produce a final review summary and a confidence score (0–10).
+Produce a review summary and a confidence score from 0 to 10.
 """
