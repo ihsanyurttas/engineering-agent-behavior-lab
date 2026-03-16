@@ -1,12 +1,19 @@
 name: strands-multi-engineer-agent
 
-# ---------------------------------------------------------------------------
-# Services
-# ---------------------------------------------------------------------------
 services:
 
   # --------------------------------------------------------------------------
   # agent — the Python CLI application
+  #
+  # Intended usage: docker compose run --rm agent agent <command>
+  # Examples:
+  #   docker compose run --rm agent agent doctor
+  #   docker compose run --rm agent agent list-tasks
+  #   docker compose run --rm agent agent run --provider ollama
+  #
+  # depends_on is intentionally omitted: the agent supports multiple providers
+  # and should not be forced to wait for Ollama when using Anthropic or OpenAI.
+  # Start Ollama first when needed: docker compose up ollama -d
   # --------------------------------------------------------------------------
   agent:
     build:
@@ -15,23 +22,27 @@ services:
     env_file:
       - .env
     environment:
-      # Override Ollama URL to point at the compose service, not localhost
+      # When running in Compose, Ollama is reachable via its service name.
+      # This overrides any OLLAMA_BASE_URL set in .env (e.g. localhost).
       OLLAMA_BASE_URL: http://ollama:11434
       AGENT_RUNTIME: docker
     volumes:
-      # Mount results directory so output persists on the host
+      # eval/results is writable so run output persists on the host.
       - ./eval/results:/app/eval/results
-      # Mount sample repos (read-only)
-      - ./sample_repos:/app/sample_repos:ro
-    depends_on:
-      ollama:
-        condition: service_healthy
-    profiles:
-      # Run agent separately: docker compose --profile run up agent
-      - run
+      # sample_repos is writable: the implement phase writes generated patches
+      # here via patch_writer.py. Changes are visible on the host after the run.
+      - ./sample_repos:/app/sample_repos
 
   # --------------------------------------------------------------------------
   # ollama — local model server
+  #
+  # Only needed when DEFAULT_PROVIDER=ollama.
+  # Pull a model before first use:
+  #   docker compose exec ollama ollama pull llama3
+  #
+  # Healthcheck uses curl against /api/tags (not /): the /api/tags endpoint
+  # confirms the server is initialised and ready to serve models, not just
+  # that the process started. curl is available in the official ollama image.
   # --------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
@@ -40,12 +51,12 @@ services:
     volumes:
       - ollama-models:/root/.ollama
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:11434/api/tags"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
-    # GPU support — uncomment if NVIDIA runtime is available
+    # GPU support — uncomment if the NVIDIA container runtime is available.
     # deploy:
     #   resources:
     #     reservations:
@@ -54,17 +65,6 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
-# ---------------------------------------------------------------------------
-# Volumes
-# ---------------------------------------------------------------------------
 volumes:
   ollama-models:
     driver: local
-
-# ---------------------------------------------------------------------------
-# Notes
-# ---------------------------------------------------------------------------
-# Start Ollama only:          docker compose up ollama -d
-# Pull a model into Ollama:   docker compose exec ollama ollama pull llama3
-# Run agent (interactive):    docker compose run --rm agent agent run
-# Run agent with a profile:   docker compose --profile run up

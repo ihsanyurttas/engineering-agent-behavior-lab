@@ -18,7 +18,7 @@ help:
 	@echo "  run            Run the agent with DEFAULT_PROVIDER"
 	@echo "  list-tasks     List available engineering tasks"
 	@echo "  doctor         Validate environment and config"
-	@echo "  compose-up     Start all services via Docker Compose"
+	@echo "  compose-up     Start Ollama service (build agent image)"
 	@echo "  compose-down   Stop all Docker Compose services"
 	@echo "  compose-logs   Tail Docker Compose logs"
 	@echo "  clean          Remove build artifacts and caches"
@@ -76,13 +76,13 @@ doctor:
 # Docker Compose
 # ---------------------------------------------------------------------------
 compose-up:
-	docker compose up --build -d
+	docker compose up ollama -d --build
 
 compose-down:
 	docker compose down
 
 compose-logs:
-	docker compose logs -f
+	docker compose logs -f ollama
 
 # ---------------------------------------------------------------------------
 # Clean

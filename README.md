@@ -155,20 +155,25 @@ Docker Compose is the primary path for running Ollama without a host binary inst
 cp .env.example .env
 # edit .env — set your API keys
 
-# 2. Start Ollama
-make compose-up
+# 2. Start Ollama (only needed when using the ollama provider)
+docker compose up ollama -d
 
-# 3. Pull a model into the Ollama container
+# 3. Wait for Ollama to be healthy, then pull a model
 docker compose exec ollama ollama pull llama3
 
-# 4. Run the agent against Ollama
-docker compose run --rm agent agent run --provider ollama
+# 4. Run agent commands
+docker compose run --rm agent doctor
+docker compose run --rm agent list-tasks
+docker compose run --rm agent run --provider ollama
 
 # 5. Stop everything
 make compose-down
 ```
 
 The `ollama-models` Docker volume persists downloaded models between restarts.
+
+Generated patches from the implement phase are written into `sample_repos/` and
+are visible on the host after each run — the directory is mounted writable.
 
 ---
 
