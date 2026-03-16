@@ -1,52 +1,83 @@
 """
-providers/provider_config.py — per-provider configuration documentation.
+providers/provider_config.py — per-provider configuration requirements.
 
-This module is intentionally lightweight. Its purpose is to document which
-environment variables each provider requires and to provide a helper that
-surfaces missing variables before a run fails deep inside the provider builder.
+This module documents which environment variables each provider needs and
+provides a helper used by `agent doctor` to surface missing values before
+a run fails inside the provider builder.
 
-No secrets are stored here. All values come from AgentConfig (env vars).
+What this module does:
+  - Declares required and optional env vars per provider
+  - Maps each required var to an explicit config field accessor
+  - Returns human-readable issue strings (not exceptions) for display
+
+What this module does NOT do:
+  - Live connectivity checks (no HTTP calls)
+  - Secret validation beyond presence
+  - Anything that changes runtime behaviour
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Callable
 
 from agent.config import AgentConfig, Provider
 
 
 @dataclass(frozen=True)
+class RequiredVar:
+    """
+    Maps one required environment variable to its AgentConfig field.
+
+    env_var:   The name shown to the user (e.g. "ANTHROPIC_API_KEY").
+    get_value: Extracts the live value from AgentConfig.
+               Using a callable avoids fragile name-to-field reflection.
+    """
+
+    env_var: str
+    get_value: Callable[[AgentConfig], str | None]
+
+
+@dataclass(frozen=True)
 class ProviderRequirements:
-    """Metadata about what a provider needs to run."""
+    """Configuration requirements for one provider."""
 
     name: str
-    required_env_vars: tuple[str, ...]
-    optional_env_vars: tuple[str, ...]
-    notes: str
+    required: tuple[RequiredVar, ...]
+    # Optional vars are listed for documentation and doctor output only.
+    # They are not validated — absence is never an error.
+    optional_env_vars: tuple[str, ...] = field(default=())
+    notes: str = ""
 
 
 PROVIDER_REQUIREMENTS: dict[Provider, ProviderRequirements] = {
     Provider.anthropic: ProviderRequirements(
         name="Anthropic",
-        required_env_vars=("ANTHROPIC_API_KEY",),
+        required=(
+            RequiredVar("ANTHROPIC_API_KEY", lambda c: c.anthropic_api_key),
+        ),
         optional_env_vars=("ANTHROPIC_MODEL",),
-        notes="Uses the Anthropic Messages API directly via strands-agents.",
+        notes="Uses the Anthropic Messages API via strands-agents.",
     ),
     Provider.openai: ProviderRequirements(
         name="OpenAI",
-        required_env_vars=("OPENAI_API_KEY",),
+        required=(
+            RequiredVar("OPENAI_API_KEY", lambda c: c.openai_api_key),
+        ),
         optional_env_vars=("OPENAI_MODEL",),
         notes="Uses the OpenAI Chat Completions API via strands-agents.",
     ),
     Provider.ollama: ProviderRequirements(
         name="Ollama",
-        required_env_vars=("OLLAMA_BASE_URL", "OLLAMA_MODEL"),
+        required=(
+            RequiredVar("OLLAMA_BASE_URL", lambda c: c.ollama_base_url),
+            RequiredVar("OLLAMA_MODEL", lambda c: c.ollama_model),
+        ),
         optional_env_vars=(),
         notes=(
             "No API key required. "
-            "Ollama must be running and accessible at OLLAMA_BASE_URL. "
-            "Recommended: use Docker Compose (see compose.yaml). "
-            "Pull the model first: docker compose exec ollama ollama pull <model>"
+            "Ollama must be running at OLLAMA_BASE_URL before the agent starts. "
+            "Recommended: docker compose up ollama, then ollama pull <model>."
         ),
     ),
 }
@@ -54,18 +85,22 @@ PROVIDER_REQUIREMENTS: dict[Provider, ProviderRequirements] = {
 
 def check_provider_requirements(config: AgentConfig) -> list[str]:
     """
-    Return a list of unmet requirements for the active provider.
-    An empty list means all requirements are satisfied.
+    Return a list of issues for the active provider's required env vars.
+
+    Each issue is a human-readable string describing one missing value.
+    An empty list means all required vars are present (values are non-empty).
+
+    Note: this checks presence only — it does not validate key format or
+    test live connectivity.
     """
-    reqs = PROVIDER_REQUIREMENTS.get(config.default_provider)
+    provider = config.active_provider
+    reqs = PROVIDER_REQUIREMENTS.get(provider)
+
     if reqs is None:
-        return [f"Unknown provider: {config.default_provider}"]
+        return [f"No requirements registered for provider '{provider.value}'."]
 
-    issues: list[str] = []
-
-    for var in reqs.required_env_vars:
-        value = getattr(config, var.lower(), None)
-        if not value:
-            issues.append(f"Missing required env var: {var}")
-
-    return issues
+    return [
+        f"Missing required env var: {req.env_var}"
+        for req in reqs.required
+        if not req.get_value(config)
+    ]
