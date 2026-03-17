@@ -105,6 +105,14 @@ def run(
         console.print("[yellow]Dry run — skipping workflow execution.[/yellow]")
         return
 
+    # Fail fast: validate model before starting the workflow.
+    from providers.base_provider import validate_active_model, ModelValidationError
+    try:
+        validate_active_model(config)
+    except ModelValidationError as exc:
+        console.print(f"[bold red]Model validation failed:[/bold red] {exc}")
+        raise typer.Exit(code=1)
+
     from agent.workflow import run_workflow
     from eval.metrics import record_result
 
@@ -212,6 +220,16 @@ def doctor() -> None:
         console.print("\n[green]✓[/green]  strands-agents is importable")
     except ImportError:
         console.print("\n[red]✗[/red]  strands-agents is NOT installed — run: pip install strands-agents")
+
+    # Preflight check — catches wrong model names and auth failures, not a full runtime guarantee
+    from providers.base_provider import validate_active_model, ModelValidationError, ProviderImportError
+    try:
+        validate_active_model(config)
+        console.print(f"[green]✓[/green]  Model '{config.active_model()}' is available on {config.active_provider.value}")
+    except ModelValidationError as exc:
+        console.print(f"[red]✗[/red]  {exc}")
+    except ProviderImportError as exc:
+        console.print(f"[yellow]⚠[/yellow]  Provider not installed — preflight check skipped: {exc}")
 
     console.print()
 

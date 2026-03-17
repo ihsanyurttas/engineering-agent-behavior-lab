@@ -30,6 +30,10 @@ class ProviderImportError(RuntimeError):
     """Raised when a provider's Strands integration cannot be imported."""
 
 
+class ModelValidationError(RuntimeError):
+    """Raised when a provider rejects or cannot find the configured model ID."""
+
+
 # ---------------------------------------------------------------------------
 # Abstract base
 # ---------------------------------------------------------------------------
@@ -43,6 +47,18 @@ class BaseProviderBuilder(ABC):
     @abstractmethod
     def build(self) -> "Model":
         """Return a configured Strands Model instance."""
+
+    @abstractmethod
+    def validate_model(self) -> None:
+        """
+        Preflight check: verify the model ID is known and credentials are accepted.
+
+        Makes a lightweight metadata call to the provider — does not execute the
+        engineering workflow or generate completion tokens. Catches wrong model names
+        and auth failures early, but does not guarantee full runtime compatibility
+        (e.g. tool-calling support or endpoint-level behaviour).
+        Raises ModelValidationError if the model is not found or the credential is rejected.
+        """
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +84,26 @@ class AnthropicProvider(BaseProviderBuilder):
             max_tokens=self.config.anthropic_max_tokens,
         )
 
+    def validate_model(self) -> None:
+        """Retrieve model metadata from the Anthropic API. Does not generate completion tokens."""
+        import anthropic
+        model_id = self.config.anthropic_model
+        try:
+            anthropic.Anthropic(api_key=self.config.anthropic_api_key).models.retrieve(model_id)
+        except anthropic.NotFoundError:
+            raise ModelValidationError(
+                f"anthropic: model '{model_id}' not found. "
+                "Check ANTHROPIC_MODEL in your .env file."
+            )
+        except anthropic.AuthenticationError as exc:
+            raise ModelValidationError(
+                f"anthropic: authentication failed — check ANTHROPIC_API_KEY. ({exc})"
+            )
+        except Exception as exc:
+            raise ModelValidationError(
+                f"anthropic: model validation failed for '{model_id}': {exc}"
+            )
+
 
 class OpenAIProvider(BaseProviderBuilder):
     """Builds a Strands OpenAIModel using the OpenAI API."""
@@ -86,6 +122,26 @@ class OpenAIProvider(BaseProviderBuilder):
             client_args={"api_key": self.config.openai_api_key},
             model_id=self.config.openai_model,
         )
+
+    def validate_model(self) -> None:
+        """Retrieve model metadata from the OpenAI API. Does not generate completion tokens."""
+        import openai
+        model_id = self.config.openai_model
+        try:
+            openai.OpenAI(api_key=self.config.openai_api_key).models.retrieve(model_id)
+        except openai.NotFoundError:
+            raise ModelValidationError(
+                f"openai: model '{model_id}' not found. "
+                "Check OPENAI_MODEL in your .env file."
+            )
+        except openai.AuthenticationError as exc:
+            raise ModelValidationError(
+                f"openai: authentication failed — check OPENAI_API_KEY. ({exc})"
+            )
+        except Exception as exc:
+            raise ModelValidationError(
+                f"openai: model validation failed for '{model_id}': {exc}"
+            )
 
 
 
@@ -112,6 +168,23 @@ class OllamaProvider(BaseProviderBuilder):
             model_id=self.config.ollama_model,
         )
 
+    def validate_model(self) -> None:
+        """Check the model is pulled in the local Ollama server. Does not generate completion tokens."""
+        import ollama
+        model_id = self.config.ollama_model
+        url = self.config.ollama_base_url
+        try:
+            ollama.Client(host=url).show(model_id)
+        except ollama.ResponseError as exc:
+            raise ModelValidationError(
+                f"ollama: model '{model_id}' not available at {url}. "
+                f"Run: ollama pull {model_id}  ({exc})"
+            )
+        except Exception as exc:
+            raise ModelValidationError(
+                f"ollama: could not reach server at {url} for model '{model_id}': {exc}"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Factory
@@ -122,6 +195,24 @@ _PROVIDER_MAP: dict[Provider, type[BaseProviderBuilder]] = {
     Provider.openai: OpenAIProvider,
     Provider.ollama: OllamaProvider,
 }
+
+
+def validate_active_model(config: AgentConfig) -> None:
+    """
+    Preflight check: verify the active provider's model ID is known and credentials
+    are accepted before a run starts.
+
+    Makes a lightweight metadata call — does not execute the engineering workflow
+    or generate completion tokens. Catches wrong model names and auth failures early,
+    but does not guarantee full runtime compatibility (e.g. tool-calling support).
+    Raises ModelValidationError on failure.
+    Call this from `agent doctor` and at the top of `agent run`.
+    """
+    provider = config.active_provider
+    builder_cls = _PROVIDER_MAP.get(provider)
+    if builder_cls is None:
+        raise ValueError(f"No builder registered for provider '{provider}'.")
+    builder_cls(config).validate_model()
 
 
 def get_strands_model(config: AgentConfig) -> "Model":

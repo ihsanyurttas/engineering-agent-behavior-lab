@@ -259,6 +259,26 @@ All configuration comes from environment variables. Copy `.env.example` to `.env
 
 ---
 
+## Testing
+
+Before each benchmark run the agent performs a provider preflight check —
+a lightweight metadata call that catches wrong model names and auth failures
+before the workflow starts. This prevents a misconfigured environment from
+silently producing a failed or incomplete benchmark result.
+
+The preflight check is exercised by a mocked unit test suite that runs
+without API keys or network access:
+
+```bash
+make test   # ~1 second, no .env required
+```
+
+> The preflight check is not a full runtime guarantee. It does not verify
+> tool-calling support or endpoint-level behaviour — only that the model ID
+> is known and credentials are accepted.
+
+---
+
 ## Makefile Targets
 
 ```
