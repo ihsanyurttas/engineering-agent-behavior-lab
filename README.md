@@ -1,4 +1,19 @@
-# strands-multi-engineer-agent
+# Engineering Agent Behavior Lab
+
+Most evaluations focus on what AI agents *can do*.
+
+This repo focuses on how they *behave*.
+
+Given the same engineering workflow and the same task, different models produce different:
+- decisions
+- execution strategies
+- failure patterns
+
+In real systems, these differences are not cosmetic.  
+They directly impact reliability, debugging, and operational risk.
+
+This project is a controlled environment to observe and compare agent behavior under identical conditions.
+
 
 ## Same workflow. Same task. Same tools. Different behavior.
 
