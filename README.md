@@ -14,6 +14,27 @@ They directly impact reliability, debugging, and operational risk.
 
 This project is a controlled environment to observe and compare agent behavior under identical conditions.
 
+## How it works
+
+This system runs multiple AI agents through the exact same engineering workflow.
+
+Each agent goes through the same phases:
+1. Inspect the task and repository
+2. Create a plan
+3. Execute changes
+4. Review its own output
+
+The workflow is fixed.  
+The task is fixed.  
+
+Only the model changes.
+
+This allows us to observe differences in:
+- decision-making
+- execution strategy
+- error handling
+- recovery behavior
+
 ## Why this matters
 
 Most engineering teams treat AI agents as interchangeable.
