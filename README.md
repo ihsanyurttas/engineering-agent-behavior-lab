@@ -177,7 +177,7 @@ Because every provider run produces the same schema, results can be compared pro
 ## Architecture
 
 ```
-strands-multi-engineer-agent/
+engineering-agent-behavior-lab/
 ├── agent/
 │   ├── cli.py          # Typer CLI: run / list-tasks / doctor
 │   ├── config.py       # Env-var validation + typed config (Pydantic)
