@@ -85,12 +85,13 @@ Behavior is.
 
 ---
 
-Not a production engineering agent.
+This is not a production engineering agent.
 
-A controlled experiment:
-fixed workflow, fixed task, variable provider.
+It is a controlled system designed to study agent behavior under identical conditions.
 
-The goal is behavioral comparison — not building the best agent.
+The goal is not to build the best agent.
+
+The goal is to understand how agents behave.
 
 ---
 ## Example output
