@@ -89,6 +89,41 @@ fixed workflow, fixed task, variable provider.
 The goal is behavioral comparison — not building the best agent.
 
 ---
+## Example output
+
+Below is a simplified comparison of how different models behave under the same task.
+
+### Task
+Fix a failing test in a small repository.
+
+### Model A
+- identifies the failing test correctly
+- proposes a minimal fix
+- keeps the existing structure intact
+- verifies the change
+
+### Model B
+- misinterprets the failure
+- modifies multiple unrelated files
+- introduces new issues
+- does not validate the result
+
+### Model C
+- identifies the issue
+- over-engineers the solution
+- adds unnecessary abstractions
+
+---
+
+These differences are not about capability.
+
+They are about behavior.
+
+And behavior is what determines:
+- reliability
+- maintainability
+- operational risk
+  
 
 ## Benchmark Output
 
