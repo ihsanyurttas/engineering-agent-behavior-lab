@@ -77,7 +77,11 @@ That difference matters.
 
 In agent systems, reliability matters more than raw capability.
 
-Built on [AWS Strands](https://github.com/strands-agents/sdk-python). Swap the provider with one env var.
+Built on top of an agent framework (AWS Strands), but designed to isolate and compare behavior across models.
+
+The framework is not the point.
+
+Behavior is. 
 
 ---
 
