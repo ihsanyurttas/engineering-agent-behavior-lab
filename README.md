@@ -14,6 +14,25 @@ They directly impact reliability, debugging, and operational risk.
 
 This project is a controlled environment to observe and compare agent behavior under identical conditions.
 
+## Why this matters
+
+Most engineering teams treat AI agents as interchangeable.
+
+They are not.
+
+Even when agents follow the same workflow, their behavior differs in:
+- how they interpret tasks
+- how they prioritize actions
+- how they handle uncertainty and errors
+- how they recover from failure
+
+These differences create hidden risks:
+- inconsistent outcomes
+- hard-to-debug failures
+- unpredictable system behavior
+
+If we want reliable AI-assisted engineering systems, we need to understand behavior — not just capability.
+
 ## How it works
 
 This system runs multiple AI agents through the exact same engineering workflow.
@@ -35,24 +54,6 @@ This allows us to observe differences in:
 - error handling
 - recovery behavior
 
-## Why this matters
-
-Most engineering teams treat AI agents as interchangeable.
-
-They are not.
-
-Even when agents follow the same workflow, their behavior differs in:
-- how they interpret tasks
-- how they prioritize actions
-- how they handle uncertainty and errors
-- how they recover from failure
-
-These differences create hidden risks:
-- inconsistent outcomes
-- hard-to-debug failures
-- unpredictable system behavior
-
-If we want reliable AI-assisted engineering systems, we need to understand behavior — not just capability.
 
 ## Same workflow. Same task. Same tools. Different behavior.
 
